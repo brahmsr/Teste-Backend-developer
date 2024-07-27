@@ -1,6 +1,6 @@
-﻿using static APItesteInside.Models.DTOs.OrderEditDTO;
+﻿using static APItesteInside.DTOs.OrderEditDTO;
 
-namespace APItesteInside.Models.DTOs
+namespace APItesteInside.DTOs
 {
     public class ProductAddInOrderDTO
     {
@@ -10,9 +10,9 @@ namespace APItesteInside.Models.DTOs
             public int status { get; set; }
             public ICollection<AddedProductDTO>? OrderProducts { get; set; }
         }
-        public class AddedProductDTO 
+        public class AddedProductDTO
         {
-            public Guid ProductId { get; set; }
+            public int ProductId { get; set; }
             public int Quantity { get; set; }
         }
     }

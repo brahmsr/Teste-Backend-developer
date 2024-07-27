@@ -1,29 +1,25 @@
 ﻿using APItesteInside.Models.Domain;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace APItesteInside.Models.Entities
 {
     public class Order
     {
-        // Id do pedido
-        [Key]
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
         // Nome do Pedido
-        [Required]
         public string OrderName { get; set; }
 
         // Preço do produto
-        [Required]
+
         [DataType(DataType.Currency)]
         public decimal Price { get; set; }
 
         // Nome do Cliente
-        [Required]
         public string ClientName { get; set; }
 
         // Telefone do Cliente 
-        [Required]
         public string Phone { get; set; }
 
         // Email do cliente
@@ -38,6 +34,6 @@ namespace APItesteInside.Models.Entities
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        public ICollection<OrderProduct> OrderProducts { get; set; }
+        public List<OrderProduct>? OrderProducts { get; set; }
     }
 }

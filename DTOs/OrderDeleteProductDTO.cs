@@ -1,6 +1,6 @@
-﻿using static APItesteInside.Models.DTOs.OrderEditDTO;
+﻿using static APItesteInside.DTOs.OrderEditDTO;
 
-namespace APItesteInside.Models.DTOs
+namespace APItesteInside.DTOs
 {
     public class OrderDeleteProductDTO
     {
@@ -13,7 +13,7 @@ namespace APItesteInside.Models.DTOs
 
         public class RemoveProductOrderDTO
         {
-            public Guid ProductId { get; set; }
+            public int ProductId { get; set; }
 
             public int Quantity { get; set; }
         }

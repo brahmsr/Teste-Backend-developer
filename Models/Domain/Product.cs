@@ -7,18 +7,15 @@ namespace APItesteInside.Models.Entities
     public class Product
     {
         // Id do produto
-        public Guid Id { get; set; }
+        public int Id { get; set; }
 
         // Nome do produto
-        [Required]
         public string Name { get; set; } = string.Empty;
 
         // Quantidade do produto
-        [Required]
         public int Quantity { get; set; } = 0;
 
         // Valor do produto
-        [Required]
         [DataType(DataType.Currency)]
         public decimal Price { get; set; } = 0;
 
@@ -29,10 +26,9 @@ namespace APItesteInside.Models.Entities
         public string? Category { get; set; }
 
         // Marcações de tempo
-        [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        public ICollection<OrderProduct> OrderProducts { get; set; }
+        public List<OrderProduct>? OrderProducts { get; set; }
     }
 }

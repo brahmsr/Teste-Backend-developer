@@ -1,6 +1,6 @@
-﻿using static APItesteInside.Models.DTOs.OrderAddDTO;
+﻿using static APItesteInside.DTOs.OrderAddDTO;
 
-namespace APItesteInside.Models.DTOs
+namespace APItesteInside.DTOs
 {
     public class OrderEditDTO
     {
@@ -25,7 +25,7 @@ namespace APItesteInside.Models.DTOs
 
         public class EditProductOrderDTO
         {
-            public Guid ProductId { get; set; }
+            public int ProductId { get; set; }
 
             public int Quantity { get; set; }
 

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace APItesteInside.Models.DTOs
+namespace APItesteInside.DTOs
 {
     public class UpdateProductQuantityDTO
     {

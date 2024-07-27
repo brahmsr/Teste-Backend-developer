@@ -14,18 +14,22 @@ namespace APItesteInside.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderProduct> OrderProducts { get; set; }
 
+        //criação do muitos para muitos dos produtos e ordens de compra
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            //especificando as foreign keys
             modelBuilder.Entity<OrderProduct>()
                 .HasKey(op => new { op.ProductId, op.OrderId });
 
+            // um pedido para muitos produtos
             modelBuilder.Entity<OrderProduct>()
                 .HasOne(op => op.Order)
                 .WithMany(o => o.OrderProducts)
                 .HasForeignKey(o => o.OrderId);
 
+            // um produto para muitos pedidos
             modelBuilder.Entity<OrderProduct>()
                 .HasOne(op => op.Product)
                 .WithMany(o => o.OrderProducts)
