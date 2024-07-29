@@ -1,4 +1,5 @@
 ﻿using APItesteInside.Models.Domain;
+using APItesteInside.Models.Entities;
 
 namespace APItesteInside.DTOs
 {
@@ -9,7 +10,8 @@ namespace APItesteInside.DTOs
         public string? Description { get; set; } = string.Empty;
         public string? Category { get; set; } = string.Empty;
         public decimal Price { get; set; } = 0;
-        public DateTime CreatedAt {  get; set; }
+        public int Quantity { get; set; } = 0;
+        public DateTime? CreatedAt {  get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<OrderProductsDTO>? OrderProducts { get; set; }
 

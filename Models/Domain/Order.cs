@@ -12,7 +12,6 @@ namespace APItesteInside.Models.Entities
         public string OrderName { get; set; }
 
         // Preço do produto
-
         [DataType(DataType.Currency)]
         public decimal Price { get; set; }
 

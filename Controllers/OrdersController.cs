@@ -2,6 +2,8 @@
 using APItesteInside.DTOs;
 using APItesteInside.Models.Domain;
 using APItesteInside.Models.Entities;
+using APItesteInside.Repositories;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -16,108 +18,50 @@ namespace APItesteInside.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly DatabaseContext dbContext;
+        private readonly IOrderRepository _orderRepository;
+        private readonly IMapper _mapper;
 
-        public OrdersController(DatabaseContext dbContext)
+        public OrdersController(DatabaseContext dbContext, IOrderRepository orderRepository,
+            IMapper mapper)
         {
             this.dbContext = dbContext;
+            _orderRepository = orderRepository;
+            _mapper = mapper;
         }
 
 
         //obter todos os pedidos de forma não paginada
         [HttpGet]
-        public async Task<IActionResult> GetAllOrders()
+        [ActionName("GetAllOrders")]
+        public async Task<IActionResult> GetAllOrders([FromQuery] string? filterBy, [FromQuery] string? prop, [FromQuery] string? sortBy, [FromQuery] bool? isAscending,
+            [FromQuery] int page = 1, [FromQuery] int? status = null)
         {
-            try
-            {
-                var getAllOrders = await dbContext.Orders
-                    .Select(o => new
-                    {
-                        o.Id,
-                        o.OrderName,
-                        o.ClientName,
-                        o.Phone,
-                        o.Email,
-                        o.Price,
-                        o.status,
-                        Produtos = o.OrderProducts.Select(op => new
-                            {
-                            op.ProductId,
-                            op.Quantity,
-                })
-                    })
-                    .ToListAsync();
+            //obtendo dados do DB
+            var ordersDomain = await _orderRepository.GetAllAsync(filterBy, prop, sortBy, isAscending ?? true, page, status);
 
-                return Ok(getAllOrders);
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"Algo deu errado. Erro: {e.Message}");
-            }
+            //retorna a ordem
+            return Ok(_mapper.Map<List<OrdersDTO>>(ordersDomain));
         }
 
         //obter apenas um pedido pelo id
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOneOrder(int id)
         {
-            var getOneOrder = await dbContext.Orders
-                .Select(o => new
-                {
-                    o.Id,
-                    o.OrderName,
-                    o.ClientName,
-                    o.Phone,
-                    o.Email,
-                    o.Price,
-                    o.status,
-                    Produtos = o.OrderProducts.Select(op => new
-                    {
-                        op.ProductId,
-                        op.Product,
-                        op.Quantity,
-                    })
-                })
-                    .FirstOrDefaultAsync(o => o.Id == id);
-
+            //procura no db
+            var getOneOrder = await _orderRepository.GetByIdAsync(id);
+            //verificando se o pedido existe
             if (getOneOrder == null)
             {
                 return NotFound();
             }
 
-            return Ok(getOneOrder);
-        }
-
-        //obter as ordens de acordo com o status
-        [HttpGet("status-order/{status}")]
-        public async Task<IActionResult> GetOrderByStatus(int status)
-        {
-            var getOrderByStatus = dbContext.Orders
-                .Select(o => new
-                {
-                    o.Id,
-                    o.OrderName,
-                    o.ClientName,
-                    o.Phone,
-                    o.Email,
-                    o.Price,
-                    o.status,
-                    Produtos = o.OrderProducts.Select(op => new
-                    {
-                        op.ProductId,
-                        op.Quantity,
-                    })
-                })
-                .Where(o => o.status == status)
-                .ToListAsync();
-            if (getOrderByStatus == null)
-            {
-                return NotFound($"Não há pedidos com o status {status}");
-            }
-            return Ok(getOrderByStatus);
+            //retorna o pedido em questão
+            return Ok(_mapper.Map<OrdersDTO>(getOneOrder));
         }
 
         //criação do pedido
         [HttpPost]
-        public async Task<IActionResult> RegisterOrder([FromBody] CreateOrderDTO addOrderDTO)
+        public async Task<IActionResult> RegisterOrder([FromBody] OrderAddDTO addOrderDTO)
         {
             //verificação da integridade do modelo
             if (!ModelState.IsValid)
@@ -183,7 +127,7 @@ namespace APItesteInside.Controllers
 
         // Editar informações do pedido
         [HttpPut("{id}")]
-        public async Task<IActionResult> EditOrder (int id, [FromBody] OrderEditDTO.EditOrdersDTO editOrderDTO)
+        public async Task<IActionResult> EditOrder (int id, [FromBody] OrderEditDTO editOrderDTO)
         {
             //testar o modelo para ver se é válido!
             if (!ModelState.IsValid)
@@ -219,55 +163,6 @@ namespace APItesteInside.Controllers
             order.status = order.status;
             order.UpdatedAt = editOrderDTO.UpdatedAt ?? DateTime.UtcNow;
 
-            //retorna os produtos anteriores para os respectivos estoques do produto
-            foreach (var returnProducts in order.OrderProducts)
-            {
-                var product = dbContext.Products.Find(returnProducts.ProductId);
-                if (product != null)
-                {
-                    product.Quantity += returnProducts.Quantity;
-                }
-            }
-
-            //limpando os produtos para não ter erros
-            order.OrderProducts.Clear();
-
-            //edição dos produtos da ordem
-            foreach (var orderProdDTO in editOrderDTO.OrderProducts)
-            {
-                //encontra os produtos inclusos na ordem do pedido
-                var productInOrder = dbContext.Products.Find(orderProdDTO.ProductId);
-
-                //caso não tenham produtos na ordem
-                if(productInOrder is null)
-                {
-                    return NotFound($"Produtos da ordem {order} não encontrado!");
-                }
-
-                //se a quantidade adicionada for menor que a indicada no estoque
-                if(productInOrder.Quantity < orderProdDTO.Quantity)
-                {
-                    return BadRequest($"Quantidade disponível no estoque de {productInOrder.Name} é de apenas {productInOrder.Quantity}" );
-                }
-                
-                //edita a quantidade de itens do estoque
-                productInOrder.Quantity -= orderProdDTO.Quantity;
-
-                //realiza então um novo registro
-                var orderProduct = new OrderProduct
-                {
-                    OrderId = order.Id,
-                    ProductId = productInOrder.Id,
-                    Quantity = orderProdDTO.Quantity
-                };
-
-                //atualiza o preço da ordem de pedido
-                order.Price = orderProdDTO.Quantity * productInOrder.Price;
-
-                //adiciona os produtos ao pedido
-                order.OrderProducts.Add(orderProduct);
-            }
-
             //salva no banco e commita
             await dbContext.SaveChangesAsync();
             transaction.Commit();
@@ -280,7 +175,7 @@ namespace APItesteInside.Controllers
         public async Task<IActionResult> AddItemInOrder(int id, [FromBody] ProductAddInOrderDTO.OrderAddProdDTO addProductInOrderDTO)
         {
             //retorna se o modelo está valido
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest($"Erro, o estado do modelo é inválido.");
             }
@@ -290,7 +185,7 @@ namespace APItesteInside.Controllers
                 .Include(op => op.OrderProducts)
                 .ThenInclude(o => o.Product)
                 .FirstOrDefaultAsync(o => o.Id == id);
-            
+
             //verifica se a order pode ser editada
             if (addProductInOrderDTO.status != 0)
             {
@@ -317,7 +212,7 @@ namespace APItesteInside.Controllers
                 };
 
                 //verifica se o produto tem quantidade suficiente
-                if(productToAdd.Quantity < productsAddDTO.Quantity)
+                if (productToAdd.Quantity < productsAddDTO.Quantity)
                 {
                     return BadRequest($"o produto {productToAdd.Name} tem apenas {productToAdd.Quantity} Unidades");
                 }
@@ -360,7 +255,8 @@ namespace APItesteInside.Controllers
                 .ThenInclude(o => o.Product)
                 .FirstOrDefaultAsync(o => o.Id == id);
 
-            if (order == null) {
+            if (order == null)
+            {
                 return NotFound($"ordem {id} não encontrado no banco de dados");
             }
 
@@ -383,7 +279,7 @@ namespace APItesteInside.Controllers
                 var productInDb = dbContext.Products.Find(productToDeletingDTO.ProductId);
 
                 //verifica se o produto existe
-                if(productInDb is null)
+                if (productInDb is null)
                 {
                     return NotFound("Produto não encontrado na base."); ;
                 }
@@ -395,7 +291,7 @@ namespace APItesteInside.Controllers
                 order.Price -= productToDeletingDTO.Quantity * productInDb.Price;
 
                 //remover o produto em questão se for todo removido
-                if(productToDeletingDTO.Quantity == orderProduct.Quantity)
+                if (productToDeletingDTO.Quantity == orderProduct.Quantity)
                 {
                     order.OrderProducts.Remove(orderProduct);
                 }
@@ -416,6 +312,7 @@ namespace APItesteInside.Controllers
 
             return Ok(order);
         }
+
         [HttpPut("change-status/{id}")]
         public async Task<IActionResult> ChangeStatus(int id, OrderChangeStatusDTO changeStatusOrderDTO)
         {
@@ -451,33 +348,20 @@ namespace APItesteInside.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(int id)
         {
-            var order = await dbContext.Orders
-                .Include(op => op.OrderProducts)
-                .ThenInclude(o => o.Product)
-                .FirstOrDefaultAsync(o => o.Id == id);
-
+            var order = await _orderRepository.DeleteOrderAsync(id);
             if (order == null) { return NotFound($"O pedido n°{id} não existe"); }
 
-            foreach(var orderProducts in order.OrderProducts)
+            var orderDTO = new OrdersDTO
             {
-                if (orderProducts == null)
-                {
-                    dbContext.Orders.Remove(order);
-                    await dbContext.SaveChangesAsync();
-                }
-
-                //procura o id do produto da ordem de pedido no BD
-                var orderProductDb = dbContext.Products.Find(orderProducts.ProductId);
-
-                //se o produto não existir no banco de dados
-                if(orderProductDb == null)
-                {
-                    return BadRequest($"o produto {orderProducts.ProductId} não existe no banco de dados");
-                }
-
-                //retorna os itens pros produtos
-                orderProductDb.Quantity += orderProducts.Quantity;
-            }
+                Id = order.Id,
+                OrderName = order.OrderName,
+                Price = order.Price,
+                ClientName = order.ClientName,
+                Phone = order.Phone,
+                Email = order.Email,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt
+            };
 
             //remove o pedido
             dbContext.Orders.Remove(order);

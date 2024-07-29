@@ -1,10 +1,9 @@
-﻿using APItesteInside.Data;
-using APItesteInside.Models.Entities;
+﻿using APItesteInside.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
 using APItesteInside.DTOs;
+using APItesteInside.Repositories;
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 
 namespace APItesteInside.Controllers
 {
@@ -12,149 +11,86 @@ namespace APItesteInside.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly DatabaseContext dbContext;
+        private readonly IProductsRepository _productsRepository;
+        private readonly IMapper _mapper;
 
-        public ProductsController(DatabaseContext dbContext)
+        public ProductsController(IProductsRepository productsRepository,
+            IMapper mapper)
         {
-            this.dbContext = dbContext;
+            _productsRepository = productsRepository;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllProducts([FromQuery] string? filterBy = null)
+        public async Task<IActionResult> GetAllProducts([FromQuery] string? filterBy, [FromQuery] string? prop,
+            [FromQuery] int page = 1, [FromQuery] bool isAscending = true, [FromQuery] string? sortBy = null)
         {
-            try
-            {
-                var AllProducts = await dbContext.Products
-                    .Select(p => new
-                    {
-                        p.Id,
-                        p.Name,
-                        p.Description,
-                        p.Category,
-                        p.Price,
-                        p.CreatedAt,
-                        p.UpdatedAt,
-                        Ordens = p.OrderProducts.Select(op => new
-                        {
-                            op.OrderId,
-                            op.Quantity
-                        }).ToList()
-                    }).ToListAsync();
+            //obtem os dados do DB
+            var ProductsDomain = await _productsRepository.GetAllProductsAsync(filterBy, prop, page);
 
-                return Ok(AllProducts);
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"erro ocorrido durante a procura dos produtos: {e.Message}.");
-            }
+            if(!ModelState.IsValid) { return BadRequest(ModelState); }
+
+            var productDTO = _mapper.Map<List<ProductsDTO>>(ProductsDomain);
+
+            return Ok(productDTO);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOneProduct([FromRoute] int id)
         {
-            try
-            {
-                var GetOneClient = await dbContext.Products
-                    .Select(p => new
-                    {
-                        p.Id,
-                        p.Name,
-                        p.Description,
-                        p.Category,
-                        p.Price,
-                        p.CreatedAt,
-                        p.UpdatedAt,
-                        Ordens = p.OrderProducts.Select(op => new
-                        {
-                            op.OrderId,
-                            op.Order,
-                            op.Quantity
-                        })
-                    })
-                    .FirstOrDefaultAsync(p => p.Id == id);
+            //recupera do banco de dados
+            var productDomain = await _productsRepository.GetByIdAsync(id);
 
-                if (GetOneClient == null)
-                {
-                    return NotFound();
-                }
-
-                return Ok(GetOneClient);
-            }
-            catch (Exception e)
+            //verifica se existe
+            if (productDomain == null)
             {
-                return BadRequest($"algo deu errado: {e.Message}");
+                return NotFound($"O produto de número: {id} - Não existe no banco de dados");
             }
+
+            return Ok(_mapper.Map<ProductsDTO>(productDomain));
         }
 
         [HttpPost]
         public async Task<IActionResult> RegisterProduct([FromBody] ProductAddDTO addProductDTO)
         {
-            try
-            {
-                var productEntity = new Product()
-                {
-                    Name = addProductDTO.Name,
-                    Description = addProductDTO.Description,
-                    Category = addProductDTO.Category,
-                    Quantity = addProductDTO.Quantity,
-                    Price = addProductDTO.Price
-                };
-                await dbContext.Products.AddAsync(productEntity);
-                await dbContext.SaveChangesAsync();
+            //adiciona o produto
+            var productDomainModel = _mapper.Map<Product>(addProductDTO); //utiliza o automapper para receber o model
 
-                return Ok(productEntity);
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"Algo deu errado: {e.Message}");
-            }
+            productDomainModel = await _productsRepository.CreateProductAsync(productDomainModel); //usando a interface
+
+            var productDTO = _mapper.Map<ProductsDTO>(productDomainModel);
+
+            return CreatedAtAction(nameof(GetOneProduct), new {Id = productDTO.Id}, productDTO);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct([FromRoute] int id,[FromBody] UpdateProductDTO updateProductDTO)
+        public async Task<IActionResult> UpdateProduct([FromRoute] int id,[FromBody] ProductEditDTO updateProductDTO)
         {
-            try
-            {
-                var product = dbContext.Products.Find(id);
-                if (product is null)
-                {
-                    return NotFound();
-                }
-                product.Name = updateProductDTO.Name;
-                product.Description = updateProductDTO.Description;
-                product.Category = updateProductDTO.Category;
-                product.Quantity = updateProductDTO.Quantity;
-                product.Price = updateProductDTO.Price;
-                product.UpdatedAt = updateProductDTO.UpdatedAt;
+            //mapeando o DTO para domain model
+            var product = _mapper.Map<Product>(updateProductDTO);
 
-                await dbContext.SaveChangesAsync();
-                return Ok(product);
-            }
-            catch (Exception e)
+            product = await _productsRepository.EditProductAsync(id, product);
+
+            //checa se o produto existe
+            if (product is null)
             {
-                return BadRequest($"Algo de errado aconteceu: {e.Message}");
+                return NotFound();
             }
+            
+            return Ok(_mapper.Map<ProductEditDTO>(product));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct([FromRoute] int id)
         {
-            try
-            {
-                var product = await dbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
-                if (product is null)
-                {
-                    return NotFound($"produto {id} não encontrado");
-                }
-                dbContext.Products.Remove(product);
-                await dbContext.SaveChangesAsync();
+            //verifica se existe no db
+            var product = await _productsRepository.DeleteProductAsync(id);
+            if (product is null)
+            { return NotFound($"produto {id} não encontrado"); }
 
-                return Ok(product);
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"Erro: {e.Message}");
-            }
+            //retorna o produto deletado
+
+            return Ok(_mapper.Map<ProductsDTO>(product));
         }
 
     }

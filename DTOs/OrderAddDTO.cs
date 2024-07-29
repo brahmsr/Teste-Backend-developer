@@ -5,28 +5,25 @@ namespace APItesteInside.DTOs
 {
     public class OrderAddDTO
     {
-        public class CreateOrderDTO
-        {
-            public string OrderName { get; set; } = string.Empty;
+        public string OrderName { get; set; } = string.Empty;
 
-            public decimal Price { get; set; } = 0;
+        public decimal Price { get; set; } = 0;
 
-            public string ClientName { get; set; } = string.Empty;
+        public string ClientName { get; set; } = string.Empty;
 
-            public string Phone { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
 
-            public string? Email { get; set; } = string.Empty;
+        public string? Email { get; set; } = string.Empty;
 
-            public int status { get; set; } = 0;
+        public int status { get; set; } = 0;
 
-            public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-            public List<CreateProductOrderDTO>? OrderProducts { get; set; }
-        }
+        public List<CreateProductOrderDTO>? OrderProducts { get; set; }
 
+        //cria a orderProduct
         public class CreateProductOrderDTO
         {
-
             public int ProductId { get; set; }
 
             public int Quantity { get; set; } = 0;
